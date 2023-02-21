@@ -39,6 +39,6 @@ class HexStream:
 
     def gen_hexs(self):
         hexs = []
-        for b in self.bytes():
+        for b in self.bytes:
             hexs.append(int_to_hex(b))
         return ''.join(hexs)
