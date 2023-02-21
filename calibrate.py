@@ -25,20 +25,21 @@ def main():
         try:
             vg01 = VG01(ser, echo=False)
             print(vg01.read_all())
-            vg01.command_sync('H')
+            print(vg01.command_sync('H'))
 
             targets = [100, 1000, 2000, 3000, 4000]
-            for i in range(VG01.CHANNELS):
-                print('CH' + str(i))
-                vg01.command_sync('I', i)
+            for ch in range(VG01.CHANNELS):
+                print('CH' + str(ch))
+                vg01.command_sync('I', ch)
                 for j in range(len(targets)):
                     t = targets[j]
-                    vg01.command_sync(VG01.CH_CODES[i], vg01.gen_constant_wo_calibration(t))
+                    vg01.command_sync(VG01.CH_CODES[ch], vg01.gen_constant_wo_calibration(t))
                     mv = input('enter output voltage [mV]: ')
                     value = (int(mv)-t+128) & 0xFF
-                    addr = (VG01.ADDR_PARAMS_START + i*len(targets) + j) << 8
+                    addr = (VG01.ADDR_PARAMS_START + ch*len(targets) + j) << 8
                     vg01.command_sync('Z', addr + value)
                     pass
+                vg01.command_sync('O', ch)
                 pass
 
         except CommandError as e:

@@ -36,6 +36,7 @@ def main():
                     vg01.command_sync(VG01.CH_CODES[ch], vg01.gen_constant(ch=ch, mvolt=t))
                     input('outputting ' + str(t) + ' mV from ch' + str(ch))
                     pass
+                vg01.command_sync('O', ch)
                 pass
 
         except CommandError as e:
