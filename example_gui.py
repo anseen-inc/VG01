@@ -1,4 +1,5 @@
 import tkinter as tk
+import tkinter.messagebox
 
 import serial
 import serial.tools.list_ports
@@ -13,6 +14,7 @@ class Application(tk.Frame):
         super().__init__(root)
         self._root = root
         self._vg01 = vg01
+        self.reconnect_is_requested = False
 
         self._root.title('VG01: ' + self._vg01.ser.name)
         self.pack()
@@ -22,6 +24,7 @@ class Application(tk.Frame):
 
     def cleanup(self):
         self.queue_tx.put(None)
+        self._root.after_cancel(self._update_jobid)
 
     class AWG_Frame(tk.Frame):
         def __init__(self, parent, ch, app) -> None:
@@ -49,8 +52,8 @@ class Application(tk.Frame):
             self._mvolt_frame.pack(pady=0)
 
             self._button_frame = tk.Frame(self)
-            self._mvolt_on = tk.Button(self, text='Set', command=self._on_set)
-            self._mvolt_on.pack(pady=0, fill=tk.X)
+            self._mvolt_set = tk.Button(self, text='Set', command=self._on_set)
+            self._mvolt_set.pack(pady=0, fill=tk.X)
             self._button_frame.pack(pady=10)
 
             pass
@@ -71,7 +74,17 @@ class Application(tk.Frame):
             return False
 
         def _on_set(self):
-            self._app.set_wave_constant(ch=int(self._ch), mvolt=int(self._mvolt.get()))
+            mv = self._mvolt.get()
+            if len(mv) == 0:
+                self._mvolt.set('0')
+            else:
+                mv = int(mv)
+                if mv < 0:
+                    self._mvolt.set('0')
+                elif mv > 4000:
+                    self._mvolt.set('4000')
+                else:
+                    self._app.set_wave_constant(ch=int(self._ch), mvolt=mv)
             pass
 
         def update(self):
@@ -82,9 +95,14 @@ class Application(tk.Frame):
 
         pass
 
+    def _on_recconect(self):
+        self.reconnect_is_requested = True
+        self.cleanup()
+        self._root.destroy()
+
     def create_widgets(self):
-        self._vg_container = tk.Frame(self._root)
-        self._vg_container.pack(padx=10, pady=10)
+        self._reconnect = tk.Button(self._root, text='Reconnect', command=self._on_recconect)
+        self._reconnect.pack(anchor=tk.E, padx=10)
         self._ch_container = tk.Frame(self._root)
         self._awgs = [self.AWG_Frame(parent=self._ch_container, ch=i, app=self) for i in range(VG01.CHANNELS)]
         for awg in self._awgs:
@@ -141,7 +159,7 @@ class Application(tk.Frame):
             elif t == EventError:
                 self._add_log(event.response)
             self.queue_rx.task_done()
-        self._root.after(10, self.update)
+        self._update_jobid = self._root.after(10, self.update)
 
     def _on_command_enter(self, key):
         cmd = self.command_var.get()
@@ -225,11 +243,8 @@ class ComportDialog(tk.Frame):
         self.listbox = tk.Listbox(self.ports_frame, width=100, height=10)
         for port in self.comports:
             self.listbox.insert(tk.END, port)
-        self.scrollbar_x = tk.Scrollbar(self.ports_frame, command=self.listbox.xview, orient=tk.HORIZONTAL)
-        self.listbox.xscrollcommand = self.scrollbar_x.set
         self.scrollbar_y = tk.Scrollbar(self.ports_frame, command=self.listbox.yview, orient=tk.VERTICAL)
         self.listbox.yscrollcommand = self.scrollbar_y.set
-        self.scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
         self.scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
         self.listbox.pack(side=tk.LEFT)
 
@@ -245,18 +260,29 @@ class ComportDialog(tk.Frame):
         else:
             tk.messagebox.showerror("COM port error", "Select a COM port from list")
 
-def main():
-    root = tk.Tk()
+def connect(root):
     comport = []
     dialog = ComportDialog(root=root, result_list=comport)
     dialog.mainloop()
-    if len(comport) == 1:
-        with serial.Serial(comport[0].device, 115200) as ser:
-            vg01 = VG01(ser, echo=False)
-            root = tk.Tk()
-            app = Application(root=root, vg01=vg01)
-            app.mainloop()
-            app.cleanup()
+    return comport
+
+def main():
+    while True:
+        root = tk.Tk()
+        comport = []
+        dialog = ComportDialog(root=root, result_list=comport)
+        dialog.mainloop()
+        if len(comport) != 1:
+            break
+        else:
+            with serial.Serial(comport[0].device, 115200) as ser:
+                vg01 = VG01(ser, echo=False)
+                root = tk.Tk()
+                app = Application(root=root, vg01=vg01)
+                app.mainloop()
+                app.cleanup()
+                if not app.reconnect_is_requested:
+                    break
 
 if __name__ == "__main__":
     main()
