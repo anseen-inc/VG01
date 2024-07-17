@@ -46,10 +46,12 @@ A # CH0の状態を読み出す
 
 ### サンプルスクリプト
 
-[example_gui.py](./example_gui.py)がGUIのサンプルスクリプトです。
-必要な外部パッケージは以下のとおりです。
-
-- pySerial
+- [example_gui.py](./example_gui.py)
+  - 制御用のサンプルスクリプト
+- [calibrate.py](./calibrate.py)
+  - 校正値取得用のスクリプト
+- [test.py](./test.py)
+  - 出力電圧確認用のスクリプト
 
 ### 制御コマンド一覧
 
